@@ -111,9 +111,7 @@ class DataManager:
     def __init__(self, cfg, custom_transform_train=None, custom_transform_test=None, dataset_wrapper=None):
         print("Build Data Manager")
 
-        dataset = build_dataset(cfg)
-
-        exit()
+        self.dataset = build_dataset(cfg)
 
         # Build Transform
         print("Build Transform")
@@ -132,7 +130,7 @@ class DataManager:
         self.train_data_loader = build_data_loader(
             cfg,
             sampler_type=cfg.DATALOADER.TRAIN.SAMPLER,
-            data_source=self.train_dataset.train_data,
+            data_source=self.dataset.train_data,
             batch_size=cfg.DATALOADER.TRAIN.BATCH_SIZE,
             batch_identity_size=cfg.DATALOADER.TRAIN.BATCH_IDENTITY_SIZE,
             transform=transform_train,
@@ -145,7 +143,7 @@ class DataManager:
         self.test_data_loader = build_data_loader(
             cfg,
             sampler_type=cfg.DATALOADER.TEST.SAMPLER,
-            data_source=self.test_dataset.query_data + self.test_dataset.gallery_data,
+            data_source=self.dataset.test_data,
             transform=transform_test,
             is_train=False,
             dataset_wrapper=dataset_wrapper
