@@ -1,5 +1,6 @@
-from .datasets.train_datasets.build_train_dataset import build_train_dataset
-from .datasets.test_datasets.build_test_dataset import build_test_dataset
+# from .datasets.train_datasets.build_train_dataset import build_train_dataset
+# from .datasets.test_datasets.build_test_dataset import build_test_dataset
+from .datasets.domainnet.build_dataset import build_dataset
 from .transforms import build_transform
 import copy
 import torch
@@ -109,11 +110,10 @@ class DataManager:
 
     def __init__(self, cfg, custom_transform_train=None, custom_transform_test=None, dataset_wrapper=None):
         print("Build Data Manager")
-        # Load Train Dataset
-        self.train_dataset = build_train_dataset(cfg)
 
-        # Load Test Data
-        self.test_dataset = build_test_dataset(cfg)
+        dataset = build_dataset(cfg)
+
+        exit()
 
         # Build Transform
         print("Build Transform")

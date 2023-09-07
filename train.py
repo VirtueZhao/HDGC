@@ -53,6 +53,7 @@ def reset_cfg_from_args(cfg, args):
     if args.trainer:
         cfg.TRAINER.NAME = args.trainer
 
+    cfg.DATASET.NAME = "DomainNet"
 
 def clean_cfg(cfg, trainer):
     """Remove unused trainers (configs).
