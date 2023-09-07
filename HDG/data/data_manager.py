@@ -94,12 +94,19 @@ def build_data_loader(
 
     data_loader = torch.utils.data.DataLoader(
         dataset=dataset_wrapper(data_source, transform),
-        batch_size=batch_size,
-        sampler=sampler,
-        num_workers=cfg.DATALOADER.NUM_WORKERS,
-        drop_last=is_train,
-        pin_memory=(torch.cuda.is_available() and cfg.USE_CUDA)
+        batch_size=256,
+        num_workers=0,
+        shuffle=True,
+        drop_last=True
     )
+    # data_loader = torch.utils.data.DataLoader(
+    #     dataset=dataset_wrapper(data_source, transform),
+    #     batch_size=batch_size,
+    #     sampler=sampler,
+    #     num_workers=cfg.DATALOADER.NUM_WORKERS,
+    #     drop_last=is_train,
+    #     pin_memory=(torch.cuda.is_available() and cfg.USE_CUDA)
+    # )
 
     assert len(data_loader) > 0
 
@@ -149,12 +156,12 @@ class DataManager:
             dataset_wrapper=dataset_wrapper
         )
 
-        self._num_classes_train = self.train_dataset.num_classes
-        self._num_source_domains = len(self.train_dataset.domains)
-        self._num_classes_query = self.test_dataset.num_classes_query
-        self._num_classes_gallery = self.test_dataset.num_classes_gallery
-        self._class_label_to_class_name_mapping_train = self.train_dataset.class_label_to_class_name_mapping
-        self._class_name_to_class_label_mapping_train = self.train_dataset.class_name_to_class_label_mapping
+        self._num_classes_train = self.dataset.train_data.num_classes
+        self._num_source_domains = len(self.dataset.train_data.domains)
+        self._num_classes_query = self.dataset.test_data.num_classes_query
+        self._num_classes_gallery = self.dataset.test_data.num_classes_gallery
+        self._class_label_to_class_name_mapping_train = self.dataset.train_data.class_label_to_class_name_mapping
+        self._class_name_to_class_label_mapping_train = self.dataset.train_data.class_name_to_class_label_mapping
         self.show_dataset_summary(cfg)
 
     @property
