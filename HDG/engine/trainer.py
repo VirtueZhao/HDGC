@@ -249,10 +249,6 @@ class GenericTrainer(BaseTrainer):
         self.num_source_domains = self.data_manager.num_source_domains
 
         self.build_model()
-        # print(self.model)
-        print(self.train_classifier)
-        print(self.test_classifier)
-        exit()
 
     def build_model(self):
         """Build and Register Default Model.
@@ -273,8 +269,10 @@ class GenericTrainer(BaseTrainer):
         self.model_registration("model", self.model, self.optimizer, self.scheduler)
 
         self.train_classifier = UnitClassifier(self.data_manager.dataset.attributes_dict, self.data_manager.dataset.seen)
+        self.train_classifier.to(self.device)
         self.train_classifier.eval()
         self.test_classifier = UnitClassifier(self.data_manager.dataset.attributes_dict, self.data_manager.dataset.unseen)
+        self.test_classifier.to(self.device)
         self.test_classifier.eval()
 
     def train(self):
