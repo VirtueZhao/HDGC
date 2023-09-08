@@ -20,17 +20,32 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances
 
 
+class UnitClassifier(nn.Module):
+    def __init__(self, attributes, classes):
+        super(UnitClassifier, self).__init__()
+
+        self.fc = nn.Linear(attributes[0].size(0), classes.size(0), bias=False)
+
+        for index, cls in enumerate(classes):
+            norm_attributes = attributes[cls.item()]
+            norm_attributes /= torch.norm(norm_attributes, 2)
+            self.fc.weight[index].data[:] = norm_attributes
+
+    def forward(self, x):
+        return self.fc(x)
+
+
 class GenericNet(nn.Module):
     """A generic neural network that composed of a CNN backbone
     and optionally a head such as mlp for classification.
     """
 
-    def __init__(self, cfg, num_classes, **kwargs):
+    def __init__(self, cfg, attribute_size, **kwargs):
         super().__init__()
         self.backbone = build_backbone(cfg, **kwargs)
         self._out_features = self.backbone.out_features
         self.semantic_projector = None
-        self.semantic_projector = nn.Linear(self._out_features, num_classes)
+        self.semantic_projector = nn.Linear(self._out_features, attribute_size)
 
     @property
     def out_features(self):
@@ -231,14 +246,13 @@ class GenericTrainer(BaseTrainer):
         self.attribute_size = self.data_manager.attribute_size
         self.num_classes_train = self.data_manager.num_classes_train
         self.num_classes_test = self.data_manager.num_classes_test
-        print(self.attribute_size)
-        print(self.num_classes_train)
-        print(self.num_classes_test)
-        exit()
-
         self.num_source_domains = self.data_manager.num_source_domains
 
         self.build_model()
+        # print(self.model)
+        print(self.train_classifier)
+        print(self.test_classifier)
+        exit()
 
     def build_model(self):
         """Build and Register Default Model.
@@ -246,7 +260,7 @@ class GenericTrainer(BaseTrainer):
         Custom Trainers Can Re-Implement This Method If Necessary.
         """
 
-        self.model = GenericNet(self.cfg, self.num_classes)
+        self.model = GenericNet(self.cfg, self.attribute_size)
         self.model.to(self.device)
         model_parameters_table = [
             ["Model", "# Parameters"],
@@ -257,6 +271,11 @@ class GenericTrainer(BaseTrainer):
         self.optimizer = build_optimizer(self.model, self.cfg.OPTIM)
         self.scheduler = build_lr_scheduler(self.optimizer, self.cfg.OPTIM)
         self.model_registration("model", self.model, self.optimizer, self.scheduler)
+
+        self.train_classifier = UnitClassifier(self.data_manager.dataset.attributes_dict, self.data_manager.dataset.seen)
+        self.train_classifier.eval()
+        self.test_classifier = UnitClassifier(self.data_manager.dataset.attributes_dict, self.data_manager.dataset.unseen)
+        self.test_classifier.eval()
 
     def train(self):
         super().train(self.start_epoch, self.max_epoch)
