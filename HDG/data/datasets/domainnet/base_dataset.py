@@ -54,6 +54,7 @@ class BaseDataset:
 
         self._train_data = train_data
         self._test_data = test_data
+
         self._num_classes = self.get_num_classes()
 
         self._class_label_to_class_name_mapping, self._class_names = self.get_class_label_to_class_name_mapping()

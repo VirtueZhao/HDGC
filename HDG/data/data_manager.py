@@ -156,12 +156,14 @@ class DataManager:
             dataset_wrapper=dataset_wrapper
         )
 
-        self._num_classes_train = self.dataset.train_data.num_classes
-        self._num_source_domains = len(self.dataset.train_data.domains)
-        self._num_classes_query = self.dataset.test_data.num_classes_query
-        self._num_classes_gallery = self.dataset.test_data.num_classes_gallery
-        self._class_label_to_class_name_mapping_train = self.dataset.train_data.class_label_to_class_name_mapping
-        self._class_name_to_class_label_mapping_train = self.dataset.train_data.class_name_to_class_label_mapping
+        self._num_classes_train = len(self.dataset.seen_list)
+        self._num_classes_test = len(self.dataset.unseen_list)
+
+        self._num_source_domains = len(cfg.DATASET.SOURCE_DOMAINS)
+        # self._num_classes_query = self.dataset.test_data.num_classes_query
+        # self._num_classes_gallery = self.dataset.test_data.num_classes_gallery
+        # self._class_label_to_class_name_mapping_train = self.dataset.train_data.class_label_to_class_name_mapping
+        # self._class_name_to_class_label_mapping_train = self.dataset.train_data.class_name_to_class_label_mapping
         self.show_dataset_summary(cfg)
 
     @property
@@ -169,24 +171,28 @@ class DataManager:
         return self._num_classes_train
 
     @property
-    def num_classes_query(self):
-        return self._num_classes_query
+    def num_classes_test(self):
+        return self._num_classes_test
 
-    @property
-    def num_classes_gallery(self):
-        return self._num_classes_gallery
+    # @property
+    # def num_classes_query(self):
+    #     return self._num_classes_query
+    #
+    # @property
+    # def num_classes_gallery(self):
+    #     return self._num_classes_gallery
 
     @property
     def num_source_domains(self):
         return self._num_source_domains
 
-    @property
-    def class_label_to_class_name_mapping_train(self):
-        return self._class_label_to_class_name_mapping_train
-
-    @property
-    def class_name_to_class_label_mapping_train(self):
-        return self._class_name_to_class_label_mapping_train
+    # @property
+    # def class_label_to_class_name_mapping_train(self):
+    #     return self._class_label_to_class_name_mapping_train
+    #
+    # @property
+    # def class_name_to_class_label_mapping_train(self):
+    #     return self._class_name_to_class_label_mapping_train
 
     def show_dataset_summary(self, cfg):
         dataset_table = [
@@ -194,17 +200,19 @@ class DataManager:
             ["Target Dataset", cfg.DATASET.TARGET_DOMAIN]
         ]
 
-        domain_names = self.train_dataset.domain_info.keys()
+        domain_names = self.dataset.domain_info.keys()
         for domain_name in domain_names:
-            dataset_table.append([domain_name, f"{self.train_dataset.domain_info[domain_name]:,}"])
+            dataset_table.append([domain_name, f"{self.dataset.domain_info[domain_name]:,}"])
 
         dataset_table.extend([
-            ["# Train Identity", f"{self.num_classes_train:,}"],
-            ["# Train   Data", f"{len(self.train_dataset.train_data):,}"],
-            ["# Query   Data", f"{len(self.test_dataset.query_data):,}"],
-            ['# Query Identity', f"{self.num_classes_query:,}"],
-            ["# Gallery Data", f"{len(self.test_dataset.gallery_data):,}"],
-            ['# Gallery Identity', f"{self.num_classes_gallery:,}"]
+            ["# Train Classes (Seen)", f"{self.num_classes_train:,}"],
+            ["# Train   Data", f"{len(self.dataset.train_data):,}"],
+            ["# Test  Classes (Unseen)", f"{self.num_classes_test:,}"],
+            ["# Test    Data", f"{len(self.dataset.test_data):,}"],
+            # ["# Query   Data", f"{len(self.test_dataset.query_data):,}"],
+            # ['# Query Identity', f"{self.num_classes_query:,}"],
+            # ["# Gallery Data", f"{len(self.test_dataset.gallery_data):,}"],
+            # ['# Gallery Identity', f"{self.num_classes_gallery:,}"]
         ])
 
         print(tabulate(dataset_table))

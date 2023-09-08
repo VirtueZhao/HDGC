@@ -82,6 +82,7 @@ class DomainNet(BaseDataset):
         for domain_label, domain_name in enumerate(source_domains):
             data_dir = osp.join(self._dataset_dir, domain_name + "_train.txt")
             img_path_class_label_list = _load_img_paths(data_dir)
+            self.domain_info[domain_name] = len(img_path_class_label_list)
 
             for img_path, class_name, class_label, class_attribute in img_path_class_label_list:
                 img_datum = Datum(
