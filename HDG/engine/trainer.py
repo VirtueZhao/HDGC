@@ -272,10 +272,6 @@ class GenericTrainer(BaseTrainer):
         end_time = time.time()
 
         for self.batch_index, batch_data in enumerate(self.train_data_loader):
-
-            print("Hi")
-            exit()
-
             data_time.update(time.time() - end_time)
             loss_summary = self.forward_backward(batch_data)
             batch_time.update(time.time() - end_time)

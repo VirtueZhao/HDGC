@@ -94,19 +94,12 @@ def build_data_loader(
 
     data_loader = torch.utils.data.DataLoader(
         dataset=dataset_wrapper(data_source, transform),
-        batch_size=256,
-        num_workers=0,
-        shuffle=True,
-        drop_last=True
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=cfg.DATALOADER.NUM_WORKERS,
+        drop_last=is_train,
+        pin_memory=(torch.cuda.is_available() and cfg.USE_CUDA)
     )
-    # data_loader = torch.utils.data.DataLoader(
-    #     dataset=dataset_wrapper(data_source, transform),
-    #     batch_size=batch_size,
-    #     sampler=sampler,
-    #     num_workers=cfg.DATALOADER.NUM_WORKERS,
-    #     drop_last=is_train,
-    #     pin_memory=(torch.cuda.is_available() and cfg.USE_CUDA)
-    # )
 
     assert len(data_loader) > 0
 
@@ -134,6 +127,8 @@ class DataManager:
 
         # Build Train Data Loader
         print("Build Train Data Loader")
+        print(cfg.DATALOADER.TRAIN.SAMPLER)
+        exit()
         self.train_data_loader = build_data_loader(
             cfg,
             sampler_type=cfg.DATALOADER.TRAIN.SAMPLER,

@@ -15,6 +15,10 @@ class ERM(GenericTrainer):
 
     def forward_backward(self, batch_data):
         input_data, class_label = self.parse_batch_train(batch_data)
+        # print(input_data[0])
+        # print(input_data[-1])
+        print(class_label)
+        exit()
 
         output, representations = self.model(input_data, return_feature=True)
 
