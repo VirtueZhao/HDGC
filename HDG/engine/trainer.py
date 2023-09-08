@@ -9,8 +9,9 @@ from collections import OrderedDict
 from HDG.data import DataManager
 from HDG.model import build_backbone
 from HDG.optim import build_optimizer, build_lr_scheduler
-from HDG.utils import tolist_if_not, count_num_parameters, mkdir_if_missing, MetricMeter, AverageMeter, evaluator
+from HDG.utils import tolist_if_not, count_num_parameters, mkdir_if_missing, MetricMeter, AverageMeter
 from torch.utils.tensorboard import SummaryWriter
+from HDG.evaluation import build_evaluator
 
 import numpy as np
 import seaborn as sns
@@ -166,11 +167,11 @@ class BaseTrainer:
         self.start_epoch = start_epoch
         self.max_epoch = max_epoch
 
-        self.before_train()
-        for self.current_epoch in range(self.start_epoch, self.max_epoch):
-            self.before_epoch()
-            self.run_epoch()
-            self.after_epoch()
+        # self.before_train()
+        # for self.current_epoch in range(self.start_epoch, self.max_epoch):
+        #     self.before_epoch()
+        #     self.run_epoch()
+        #     self.after_epoch()
         self.after_train()
 
     def before_train(self):
@@ -249,6 +250,7 @@ class GenericTrainer(BaseTrainer):
         self.num_source_domains = self.data_manager.num_source_domains
 
         self.build_model()
+        self.evaluator = build_evaluator(self.cfg)
 
     def build_model(self):
         """Build and Register Default Model.
@@ -328,38 +330,57 @@ class GenericTrainer(BaseTrainer):
         # self.save_model(self.current_epoch, self.output_dir)
         self.test()
 
-    def test(self):
-        print("Extracting Feature Representation for Query Set and Gallery Set")
-        self.set_model_mode("eval")
+    # def test(self):
+    #     print("Extracting Feature Representation for Query Set and Gallery Set")
+    #     self.set_model_mode("eval")
+    #
+    #     representations = OrderedDict()
+    #     class_names_labels = OrderedDict()
+    #
+    #     with torch.no_grad():
+    #         self.model.semantic_projector = None
+    #
+    #         for batch_index, batch_data in enumerate(tqdm(self.test_data_loader)):
+    #             file_names, input_data, class_names = self.parse_batch_test(batch_data)
+    #             outputs = self.model_inference(input_data)
+    #             outputs = outputs.cpu()
+    #
+    #             for file_name, representation, class_name in zip(file_names, outputs, class_names):
+    #                 representations[file_name] = representation
+    #                 class_names_labels[file_name] = class_name
+    #
+    #     dist_mat = evaluator.compute_dist_mat(representations, self.data_manager.test_dataset)
+    #     evaluator.evaluate(dist_mat, self.data_manager.test_dataset)
 
-        representations = OrderedDict()
-        class_names_labels = OrderedDict()
+    def test(self):
+        self.model.eval()
 
         with torch.no_grad():
-            self.model.semantic_projector = None
-
             for batch_index, batch_data in enumerate(tqdm(self.test_data_loader)):
-                file_names, input_data, class_names = self.parse_batch_test(batch_data)
-                outputs = self.model_inference(input_data)
-                outputs = outputs.cpu()
+                input_data, class_label = self.parse_batch_test(batch_data)
+                semantic_projection = self.model(input_data)
+                prediction = self.test_classifier(semantic_projection)
 
-                for file_name, representation, class_name in zip(file_names, outputs, class_names):
-                    representations[file_name] = representation
-                    class_names_labels[file_name] = class_name
+                print(self.evaluator)
+                exit()
 
-        dist_mat = evaluator.compute_dist_mat(representations, self.data_manager.test_dataset)
-        evaluator.evaluate(dist_mat, self.data_manager.test_dataset)
 
     def model_inference(self, input_data):
         return self.model(input_data)
 
-    def parse_batch_test(self, batch_data):
-        file_name = [path.split('/')[-1] for path in batch_data["img_path"]]
-        input_data = batch_data["img"].to(self.device)
-        class_name = batch_data["class_name"]
-        class_name = torch.tensor(list(map(int, class_name)), dtype=torch.int64)
+    # def parse_batch_test(self, batch_data):
+    #     file_name = [path.split('/')[-1] for path in batch_data["img_path"]]
+    #     input_data = batch_data["img"].to(self.device)
+    #     class_name = batch_data["class_name"]
+    #     class_name = torch.tensor(list(map(int, class_name)), dtype=torch.int64)
+    #
+    #     return file_name, input_data, class_name
 
-        return file_name, input_data, class_name
+    def parse_batch_test(self, batch_data):
+        input_data = batch_data["img"].to(self.device)
+        class_label = batch_data["class_label"].to(self.device)
+
+        return input_data, class_label
 
     def get_current_lr(self, names=None):
         name = self.get_model_names(names)[0]
