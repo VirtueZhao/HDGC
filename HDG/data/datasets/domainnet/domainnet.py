@@ -49,6 +49,8 @@ class DomainNet(BaseDataset):
         self.attributes_dict = np.load(os.path.join(self._dataset_dir, "w2v_domainnet.npy"), allow_pickle=True,
                                        encoding="latin1").item()
 
+        self.attribute_size = len(self.attributes_dict[list(self.attributes_dict.keys())[0]])
+
         for key in self.attributes_dict.keys():
             self.attributes_dict[key] = torch.Tensor(self.attributes_dict[key])
 

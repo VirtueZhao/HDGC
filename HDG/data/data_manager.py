@@ -127,8 +127,6 @@ class DataManager:
 
         # Build Train Data Loader
         print("Build Train Data Loader")
-        print(cfg.DATALOADER.TRAIN.SAMPLER)
-        exit()
         self.train_data_loader = build_data_loader(
             cfg,
             sampler_type=cfg.DATALOADER.TRAIN.SAMPLER,
@@ -155,11 +153,16 @@ class DataManager:
         self._num_classes_test = len(self.dataset.unseen_list)
 
         self._num_source_domains = len(cfg.DATASET.SOURCE_DOMAINS)
+        self._attribute_size = self.dataset.attribute_size
         # self._num_classes_query = self.dataset.test_data.num_classes_query
         # self._num_classes_gallery = self.dataset.test_data.num_classes_gallery
         # self._class_label_to_class_name_mapping_train = self.dataset.train_data.class_label_to_class_name_mapping
         # self._class_name_to_class_label_mapping_train = self.dataset.train_data.class_name_to_class_label_mapping
         self.show_dataset_summary(cfg)
+
+    @property
+    def attribute_size(self):
+        return self._attribute_size
 
     @property
     def num_classes_train(self):

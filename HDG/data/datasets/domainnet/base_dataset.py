@@ -55,7 +55,7 @@ class BaseDataset:
         self._train_data = train_data
         self._test_data = test_data
 
-        self._num_classes = self.get_num_classes()
+        # self._num_classes = self.get_num_classes()
 
         self._class_label_to_class_name_mapping, self._class_names = self.get_class_label_to_class_name_mapping()
 
@@ -87,16 +87,16 @@ class BaseDataset:
     def class_names(self):
         return self._class_names
 
-    @property
-    def num_classes(self):
-        return self._num_classes
+    # @property
+    # def num_classes(self):
+    #     return self._num_classes
 
-    def get_num_classes(self):
-        class_label_set = set()
-        for datum in self._train_data:
-            class_label_set.add(datum.class_label)
-
-        return max(class_label_set) + 1
+    # def get_num_classes(self):
+    #     class_label_set = set()
+    #     for datum in self._train_data:
+    #         class_label_set.add(datum.class_label)
+    #
+    #     return max(class_label_set) + 1
 
     def get_class_label_to_class_name_mapping(self):
         container = set()

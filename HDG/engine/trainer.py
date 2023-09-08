@@ -29,9 +29,8 @@ class GenericNet(nn.Module):
         super().__init__()
         self.backbone = build_backbone(cfg, **kwargs)
         self._out_features = self.backbone.out_features
-        self.classifier = None
-        if num_classes > 0:
-            self.classifier = nn.Linear(self._out_features, num_classes)
+        self.semantic_projector = None
+        self.semantic_projector = nn.Linear(self._out_features, num_classes)
 
     @property
     def out_features(self):
@@ -40,10 +39,10 @@ class GenericNet(nn.Module):
     def forward(self, x, return_feature=False):
         f = self.backbone(x)
 
-        if self.classifier is None:
+        if self.semantic_projector is None:
             return f
 
-        y = self.classifier(f)
+        y = self.semantic_projector(f)
 
         if return_feature:
             return y, f
@@ -228,7 +227,15 @@ class GenericTrainer(BaseTrainer):
         self.data_manager = DataManager(self.cfg)
         self.train_data_loader = self.data_manager.train_data_loader
         self.test_data_loader = self.data_manager.test_data_loader
-        self.num_classes = self.data_manager.num_classes_train
+
+        self.attribute_size = self.data_manager.attribute_size
+        self.num_classes_train = self.data_manager.num_classes_train
+        self.num_classes_test = self.data_manager.num_classes_test
+        print(self.attribute_size)
+        print(self.num_classes_train)
+        print(self.num_classes_test)
+        exit()
+
         self.num_source_domains = self.data_manager.num_source_domains
 
         self.build_model()
@@ -312,7 +319,7 @@ class GenericTrainer(BaseTrainer):
         class_names_labels = OrderedDict()
 
         with torch.no_grad():
-            self.model.classifier = None
+            self.model.semantic_projector = None
 
             for batch_index, batch_data in enumerate(tqdm(self.test_data_loader)):
                 file_names, input_data, class_names = self.parse_batch_test(batch_data)

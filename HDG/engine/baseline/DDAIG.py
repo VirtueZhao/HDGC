@@ -124,7 +124,7 @@ class DDAIG(GenericTrainer):
         class_names_labels = OrderedDict()
 
         with torch.no_grad():
-            self.label_classifier.classifier = None
+            self.label_classifier.semantic_projector = None
             
             for batch_index, batch_data in enumerate(tqdm(self.test_data_loader)):
                 file_names, input_data, class_names = self.parse_batch_test(batch_data)

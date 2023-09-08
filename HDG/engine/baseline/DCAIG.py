@@ -181,7 +181,7 @@ class DCAIG(GenericTrainer):
         class_names_labels = OrderedDict()
 
         with torch.no_grad():
-            self.feature_extractor.classifier = None
+            self.feature_extractor.semantic_projector = None
 
             for batch_index, batch_data in enumerate(tqdm(self.test_data_loader)):
                 file_names, input_data, class_names = self.parse_batch_test(batch_data)
