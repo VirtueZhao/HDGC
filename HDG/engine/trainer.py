@@ -167,11 +167,11 @@ class BaseTrainer:
         self.start_epoch = start_epoch
         self.max_epoch = max_epoch
 
-        # self.before_train()
-        # for self.current_epoch in range(self.start_epoch, self.max_epoch):
-        #     self.before_epoch()
-        #     self.run_epoch()
-        #     self.after_epoch()
+        self.before_train()
+        for self.current_epoch in range(self.start_epoch, self.max_epoch):
+            self.before_epoch()
+            self.run_epoch()
+            self.after_epoch()
         self.after_train()
 
     def before_train(self):
@@ -360,10 +360,13 @@ class GenericTrainer(BaseTrainer):
                 input_data, class_label = self.parse_batch_test(batch_data)
                 semantic_projection = self.model(input_data)
                 prediction = self.test_classifier(semantic_projection)
+                self.evaluator.process(prediction, class_label)
+            evaluation_results = self.evaluator.evaluate()
 
-                print(self.evaluator)
-                exit()
+            for k, v in evaluation_results.items():
+                self.write_scalar(f"test/{k}", v, self.current_epoch)
 
+            return list(evaluation_results.values())[0]
 
     def model_inference(self, input_data):
         return self.model(input_data)

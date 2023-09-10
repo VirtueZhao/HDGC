@@ -129,7 +129,8 @@ class DataManager:
         print("Build Train Data Loader")
         self.train_data_loader = build_data_loader(
             cfg,
-            sampler_type=cfg.DATALOADER.TRAIN.SAMPLER,
+            # sampler_type=cfg.DATALOADER.TRAIN.SAMPLER,
+            sampler_type="RandomSampler",
             data_source=self.dataset.train_data,
             batch_size=cfg.DATALOADER.TRAIN.BATCH_SIZE,
             batch_identity_size=cfg.DATALOADER.TRAIN.BATCH_IDENTITY_SIZE,
