@@ -161,15 +161,14 @@ class DCAIG(GenericTrainer):
                 # self.lmda_domain = self.lmda_class = 0
                 input_data_domain_class_augmented = temp_input + self.lmda_domain * domain_perturbation + self.lmda_class * class_perturbation
 
-            print("Hi")
-            exit()
+            semantic_projection, representations = self.feature_extractor(input_data, return_feature=True)
+            semantic_projection_augmented, representations_augmented = self.feature_extractor(input_data_domain_class_augmented, return_feature=True)
 
-            pred, representations = self.feature_extractor(input_data, return_feature=True)
-            pred_augmented, representations_augmented = self.feature_extractor(input_data_domain_class_augmented, return_feature=True)
-
+            prediction = self.feature_extractor_classifier(semantic_projection)
+            prediction_augmented = self.feature_extractor_classifier(semantic_projection_augmented)
+            loss_c1 = F.cross_entropy(prediction, class_label)
+            loss_c2 = F.cross_entropy(prediction_augmented, class_label)
             triplet_loss = TripletLoss(margin=1.2)
-            loss_c1 = F.cross_entropy(pred, class_label)
-            loss_c2 = F.cross_entropy(pred_augmented, class_label)
             loss_t1 = triplet_loss(representations, class_label)
             loss_t2 = triplet_loss(representations_augmented, class_label)
             loss_feature_extractor = (1.0 - self.alpha) * (loss_c1 + loss_t1) + self.alpha * (loss_c2 + loss_t2)
