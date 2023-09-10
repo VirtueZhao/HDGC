@@ -82,7 +82,7 @@ class DCAIG(GenericTrainer):
     def forward_backward(self, batch_data):
         input_data, class_label, domain_label = self.parse_batch_train(batch_data)
 
-        if self.current_epoch + 1 <= 5:
+        if self.current_epoch + 1 <= 0:
             # print("Warm-up Epoch")
             output, representations = self.feature_extractor(input_data, return_feature=True)
             c_loss = F.cross_entropy(output, class_label)
@@ -92,14 +92,13 @@ class DCAIG(GenericTrainer):
 
             self.model_backward_and_update(loss_feature_extractor)
         else:
+            # Compute Diversity
             temp_data = copy.deepcopy(input_data)
             temp_model = copy.deepcopy(self.feature_extractor)
             _, embeddings = temp_model(temp_data, return_feature=True)
-
             embeddings_min = torch.min(embeddings)
             embeddings_max = torch.max(embeddings)
             normalized_embeddings = (embeddings - embeddings_min) / (embeddings_max - embeddings_min)
-
             diversity = measure_diversity(normalized_embeddings.cpu(), diversity_type="gini")
             # print(type(diversity))
             # print(diversity.shape)
@@ -111,9 +110,12 @@ class DCAIG(GenericTrainer):
             # Update Domain Generator
             temp_input = copy.deepcopy(input_data)
             input_data_domain_augmented = self.domain_generator(temp_input, lmda=self.lmda_domain)
-            loss_domain_generator = 0
             temp_feature_extractor = copy.deepcopy(self.feature_extractor)
-            loss_domain_generator += F.cross_entropy(temp_feature_extractor(input_data_domain_augmented), class_label)
+
+            loss_domain_generator = 0
+            temp_semantic_projection = temp_feature_extractor(input_data_domain_augmented)
+            temp_prediction = self.feature_extractor_classifier(temp_semantic_projection)
+            loss_domain_generator += F.cross_entropy(temp_prediction, class_label)
             loss_domain_generator -= F.cross_entropy(self.domain_discriminator(input_data_domain_augmented), domain_label)
             self.model_backward_and_update(loss_domain_generator, "domain_generator")
 
@@ -128,17 +130,26 @@ class DCAIG(GenericTrainer):
             # Update Class Generator
             temp_input = copy.deepcopy(input_data)
             input_data_class_augmented = self.class_generator(temp_input, lmda=self.lmda_class)
-            loss_class_generator = 0
             temp_feature_extractor = copy.deepcopy(self.feature_extractor)
-            loss_class_generator += F.cross_entropy(temp_feature_extractor(input_data_class_augmented), class_label)
-            loss_class_generator -= F.cross_entropy(self.class_discriminator(input_data_class_augmented), class_label)
+            loss_class_generator = 0
+
+            semantic_projection_class_augmented_f = temp_feature_extractor(input_data_class_augmented)
+            prediction_class_augmented_f = self.feature_extractor_classifier(semantic_projection_class_augmented_f)
+            loss_class_generator += F.cross_entropy(prediction_class_augmented_f, class_label)
+            semantic_projection_class_augmented_c = self.class_discriminator(input_data_class_augmented)
+            prediction_class_augmented_c = self.class_discriminator_classifier(semantic_projection_class_augmented_c)
+            loss_class_generator -= F.cross_entropy(prediction_class_augmented_c, class_label)
             self.model_backward_and_update(loss_class_generator, "class_generator")
 
             # Update Class Discriminator
             input_data_class_augmented = self.class_generator(input_data, lmda=self.lmda_class)
             loss_class_discriminator = 0
-            loss_class_discriminator += F.cross_entropy(self.class_discriminator(input_data), class_label)
-            loss_class_discriminator += F.cross_entropy(self.class_discriminator(input_data_class_augmented), class_label)
+            semantic_projection = self.class_discriminator(input_data)
+            prediction = self.class_discriminator_classifier(semantic_projection)
+            loss_class_discriminator += F.cross_entropy(prediction, class_label)
+            semantic_projection_c = self.class_discriminator(input_data_class_augmented)
+            prediction_c = self.class_discriminator_classifier(semantic_projection_c)
+            loss_class_discriminator += F.cross_entropy(prediction_c, class_label)
             self.model_backward_and_update(loss_class_discriminator, "class_discriminator")
 
             # Update Feature Extractor
@@ -149,6 +160,9 @@ class DCAIG(GenericTrainer):
                 _, class_perturbation = self.class_generator(temp_input, lmda=self.lmda_class, return_p=True)
                 # self.lmda_domain = self.lmda_class = 0
                 input_data_domain_class_augmented = temp_input + self.lmda_domain * domain_perturbation + self.lmda_class * class_perturbation
+
+            print("Hi")
+            exit()
 
             pred, representations = self.feature_extractor(input_data, return_feature=True)
             pred_augmented, representations_augmented = self.feature_extractor(input_data_domain_class_augmented, return_feature=True)
