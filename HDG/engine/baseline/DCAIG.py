@@ -7,7 +7,7 @@ from collections import OrderedDict
 from HDG.model import build_network
 from torch.nn import functional as F
 from torchvision.transforms import Normalize
-from HDG.engine.trainer import GenericNet
+from HDG.engine.trainer import GenericNet, UnitClassifier
 from HDG.engine import TRAINER_REGISTRY, GenericTrainer
 from HDG.optim import build_optimizer, build_lr_scheduler
 from HDG.utils import count_num_parameters, evaluator, TripletLoss, measure_diversity, compute_impact_factor
@@ -24,11 +24,14 @@ class DCAIG(GenericTrainer):
 
     def build_model(self):
         print("Build Feature Extractor")
-        self.feature_extractor = GenericNet(self.cfg, self.num_classes)
+        self.feature_extractor = GenericNet(self.cfg, self.attribute_size)
         self.feature_extractor.to(self.device)
         self.optimizer_feature_extractor = build_optimizer(self.feature_extractor, self.cfg.OPTIM)
         self.scheduler_feature_extractor = build_lr_scheduler(self.optimizer_feature_extractor, self.cfg.OPTIM)
         self.model_registration("feature_extractor", self.feature_extractor, self.optimizer_feature_extractor, self.scheduler_feature_extractor)
+        self.feature_extractor_classifier = UnitClassifier(self.data_manager.dataset.attributes_dict, self.data_manager.dataset.seen)
+        self.feature_extractor_classifier.to(self.device)
+        self.feature_extractor_classifier.eval()
 
         print("Build Domain Generator")
         self.domain_generator = build_network("fcn_3x32_gctx")
@@ -52,11 +55,18 @@ class DCAIG(GenericTrainer):
         self.model_registration("class_generator", self.class_generator, self.optimizer_class_generator, self.scheduler_class_generator)
 
         print("Build Class Discriminator")
-        self.class_discriminator = GenericNet(self.cfg, self.num_classes)
+        self.class_discriminator = GenericNet(self.cfg, self.attribute_size)
         self.class_discriminator.to(self.device)
         self.optimizer_class_discriminator = build_optimizer(self.class_discriminator, self.cfg.OPTIM)
         self.scheduler_class_discriminator = build_lr_scheduler(self.optimizer_class_discriminator, self.cfg.OPTIM)
         self.model_registration("class_discriminator", self.class_discriminator, self.optimizer_class_discriminator, self.scheduler_class_discriminator)
+        self.class_discriminator_classifier = UnitClassifier(self.data_manager.dataset.attributes_dict, self.data_manager.dataset.seen)
+        self.class_discriminator_classifier.to(self.device)
+        self.class_discriminator_classifier.eval()
+
+        self.test_classifier = UnitClassifier(self.data_manager.dataset.attributes_dict, self.data_manager.dataset.unseen)
+        self.test_classifier.to(self.device)
+        self.test_classifier.eval()
 
         model_parameters_table = [
             ["Model", "# Parameters"],
