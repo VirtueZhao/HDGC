@@ -28,7 +28,7 @@ class DCAIG(GenericTrainer):
         self.feature_extractor.to(self.device)
         self.optimizer_feature_extractor = build_optimizer(self.feature_extractor, self.cfg.OPTIM)
         self.scheduler_feature_extractor = build_lr_scheduler(self.optimizer_feature_extractor, self.cfg.OPTIM)
-        self.model_registration("feature_extractor", self.feature_extractor, self.optimizer_feature_extractor, self.scheduler_feature_extractor)
+        # self.model_registration("feature_extractor", self.feature_extractor, self.optimizer_feature_extractor, self.scheduler_feature_extractor)
         self.feature_extractor_classifier = UnitClassifier(self.data_manager.dataset.attributes_dict, self.data_manager.dataset.seen)
         self.feature_extractor_classifier.to(self.device)
         self.feature_extractor_classifier.eval()
@@ -38,28 +38,28 @@ class DCAIG(GenericTrainer):
         self.domain_generator.to(self.device)
         self.optimizer_domain_generator = build_optimizer(self.domain_generator, self.cfg.OPTIM)
         self.scheduler_domain_generator = build_lr_scheduler(self.optimizer_domain_generator, self.cfg.OPTIM)
-        self.model_registration("domain_generator", self.domain_generator, self.optimizer_domain_generator, self.scheduler_domain_generator)
+        # self.model_registration("domain_generator", self.domain_generator, self.optimizer_domain_generator, self.scheduler_domain_generator)
 
         print("Build Domain Discriminator")
         self.domain_discriminator = GenericNet(self.cfg, self.num_source_domains)
         self.domain_discriminator.to(self.device)
         self.optimizer_domain_discriminator = build_optimizer(self.domain_discriminator, self.cfg.OPTIM)
         self.scheduler_domain_discriminator = build_lr_scheduler(self.optimizer_domain_discriminator, self.cfg.OPTIM)
-        self.model_registration("domain_discriminator", self.domain_discriminator, self.optimizer_domain_discriminator, self.scheduler_domain_discriminator)
+        # self.model_registration("domain_discriminator", self.domain_discriminator, self.optimizer_domain_discriminator, self.scheduler_domain_discriminator)
 
         print("Build Class Generator")
         self.class_generator = build_network("fcn_3x32_gctx")
         self.class_generator.to(self.device)
         self.optimizer_class_generator = build_optimizer(self.class_generator, self.cfg.OPTIM)
         self.scheduler_class_generator = build_lr_scheduler(self.optimizer_class_generator, self.cfg.OPTIM)
-        self.model_registration("class_generator", self.class_generator, self.optimizer_class_generator, self.scheduler_class_generator)
+        # self.model_registration("class_generator", self.class_generator, self.optimizer_class_generator, self.scheduler_class_generator)
 
         print("Build Class Discriminator")
         self.class_discriminator = GenericNet(self.cfg, self.attribute_size)
         self.class_discriminator.to(self.device)
         self.optimizer_class_discriminator = build_optimizer(self.class_discriminator, self.cfg.OPTIM)
         self.scheduler_class_discriminator = build_lr_scheduler(self.optimizer_class_discriminator, self.cfg.OPTIM)
-        self.model_registration("class_discriminator", self.class_discriminator, self.optimizer_class_discriminator, self.scheduler_class_discriminator)
+        # self.model_registration("class_discriminator", self.class_discriminator, self.optimizer_class_discriminator, self.scheduler_class_discriminator)
         self.class_discriminator_classifier = UnitClassifier(self.data_manager.dataset.attributes_dict, self.data_manager.dataset.seen)
         self.class_discriminator_classifier.to(self.device)
         self.class_discriminator_classifier.eval()
@@ -91,6 +91,10 @@ class DCAIG(GenericTrainer):
             loss_feature_extractor = c_loss + t_loss
 
             self.model_backward_and_update(loss_feature_extractor)
+
+            loss_summary = {
+                "loss_feature_extractor": loss_feature_extractor.item()
+            }
         else:
             # Compute Diversity
             temp_data = copy.deepcopy(input_data)
@@ -112,45 +116,65 @@ class DCAIG(GenericTrainer):
             input_data_domain_augmented = self.domain_generator(temp_input, lmda=self.lmda_domain)
             temp_feature_extractor = copy.deepcopy(self.feature_extractor)
 
-            loss_domain_generator = 0
             temp_semantic_projection = temp_feature_extractor(input_data_domain_augmented)
             temp_prediction = self.feature_extractor_classifier(temp_semantic_projection)
-            loss_domain_generator += F.cross_entropy(temp_prediction, class_label)
+            loss_domain_generator = F.cross_entropy(temp_prediction, class_label)
             loss_domain_generator -= F.cross_entropy(self.domain_discriminator(input_data_domain_augmented), domain_label)
-            self.model_backward_and_update(loss_domain_generator, "domain_generator")
+            self.domain_generator.zero_grad()
+            self.detect_abnormal_loss(loss_domain_generator)
+            loss_domain_generator.backward()
+            self.optimizer_domain_generator.step()
+            # self.model_backward_and_update(loss_domain_generator, "domain_generator")
 
             # Update Domain Discriminator
             input_data_domain_augmented = self.domain_generator(temp_input, lmda=self.lmda_domain)
-            loss_domain_discriminator = 0
-            loss_domain_discriminator += F.cross_entropy(self.domain_discriminator(temp_input), domain_label)
+            loss_domain_discriminator = F.cross_entropy(self.domain_discriminator(temp_input), domain_label)
             loss_domain_discriminator += F.cross_entropy(self.domain_discriminator(input_data_domain_augmented), domain_label)
-            self.model_backward_and_update(loss_domain_discriminator, "domain_discriminator")
+            self.domain_discriminator.zero_grad()
+            self.detect_abnormal_loss(loss_domain_discriminator)
+            loss_domain_discriminator.backward()
+            torch.nn.utils.clip_grad_norm_(parameters=self.domain_discriminator.parameters(), max_norm=10, norm_type=2)
+            self.optimizer_domain_discriminator.step()
+            # self.model_backward_and_update(loss_domain_discriminator, "domain_discriminator")
 
             # Update C-GAN
             # Update Class Generator
             temp_input = copy.deepcopy(input_data)
             input_data_class_augmented = self.class_generator(temp_input, lmda=self.lmda_class)
             temp_feature_extractor = copy.deepcopy(self.feature_extractor)
-            loss_class_generator = 0
 
             semantic_projection_class_augmented_f = temp_feature_extractor(input_data_class_augmented)
             prediction_class_augmented_f = self.feature_extractor_classifier(semantic_projection_class_augmented_f)
-            loss_class_generator += F.cross_entropy(prediction_class_augmented_f, class_label)
+            loss_class_generator = F.cross_entropy(prediction_class_augmented_f, class_label)
             semantic_projection_class_augmented_c = self.class_discriminator(input_data_class_augmented)
             prediction_class_augmented_c = self.class_discriminator_classifier(semantic_projection_class_augmented_c)
             loss_class_generator -= F.cross_entropy(prediction_class_augmented_c, class_label)
-            self.model_backward_and_update(loss_class_generator, "class_generator")
+            self.class_generator.zero_grad()
+            self.detect_abnormal_loss(loss_class_generator)
+            loss_class_generator.backward()
+            self.optimizer_class_generator.step()
+            # self.model_backward_and_update(loss_class_generator, "class_generator")
 
             # Update Class Discriminator
             input_data_class_augmented = self.class_generator(input_data, lmda=self.lmda_class)
-            loss_class_discriminator = 0
             semantic_projection = self.class_discriminator(input_data)
             prediction = self.class_discriminator_classifier(semantic_projection)
-            loss_class_discriminator += F.cross_entropy(prediction, class_label)
+            loss_class_discriminator = F.cross_entropy(prediction, class_label)
             semantic_projection_c = self.class_discriminator(input_data_class_augmented)
             prediction_c = self.class_discriminator_classifier(semantic_projection_c)
             loss_class_discriminator += F.cross_entropy(prediction_c, class_label)
-            self.model_backward_and_update(loss_class_discriminator, "class_discriminator")
+            self.class_discriminator.zero_grad()
+            # self.detect_abnormal_loss(loss_class_discriminator)
+
+            if not torch.isfinite(loss_class_discriminator).all():
+                print("Start Debugging")
+                print("Loss: {}".format(loss_class_discriminator))
+                raise FloatingPointError("Loss is Infinite or NaN.")
+
+            loss_class_discriminator.backward()
+            torch.nn.utils.clip_grad_norm_(parameters=self.class_discriminator.parameters(), max_norm=5, norm_type=2)
+            self.optimizer_class_discriminator.step()
+            # self.model_backward_and_update(loss_class_discriminator, "class_discriminator")
 
             # Update Feature Extractor
             # Generate Domain Perturbation and Class Perturbation
@@ -172,18 +196,26 @@ class DCAIG(GenericTrainer):
             loss_t1 = triplet_loss(representations, class_label)
             loss_t2 = triplet_loss(representations_augmented, class_label)
             loss_feature_extractor = (1.0 - self.alpha) * (loss_c1 + loss_t1) + self.alpha * (loss_c2 + loss_t2)
-            self.model_backward_and_update(loss_feature_extractor, "feature_extractor")
+            self.feature_extractor.zero_grad()
+            self.detect_abnormal_loss(loss_feature_extractor)
+            loss_feature_extractor.backward()
+            self.optimizer_feature_extractor.step()
+            # self.model_backward_and_update(loss_feature_extractor, "feature_extractor")
 
-        loss_summary = {
-            "loss_feature_extractor": loss_feature_extractor.item(),
-            # "loss_domain_generator": loss_domain_generator.item(),
-            # "loss_domain_discriminator": loss_domain_discriminator.item(),
-            # "loss_class_generator": loss_class_generator.item(),
-            # "loss_class_discriminator": loss_class_discriminator.item()
-        }
+            loss_summary = {
+                "loss_feature_extractor": loss_feature_extractor.item(),
+                "loss_domain_generator": loss_domain_generator.item(),
+                "loss_domain_discriminator": loss_domain_discriminator.item(),
+                "loss_class_generator": loss_class_generator.item(),
+                "loss_class_discriminator": loss_class_discriminator.item()
+            }
 
         if self.batch_index + 1 == self.num_batches:
-            self.update_lr()
+            self.scheduler_feature_extractor.step()
+            self.scheduler_domain_generator.step()
+            self.scheduler_domain_discriminator.step()
+            self.scheduler_class_generator.step()
+            self.scheduler_class_discriminator.step()
 
         return loss_summary
 
@@ -196,25 +228,43 @@ class DCAIG(GenericTrainer):
     def model_inference(self, input_data):
         return self.feature_extractor(input_data)
 
+    def get_current_lr(self):
+        return self.optimizer_feature_extractor.param_groups[0]["lr"]
+
+    # def test(self):
+    #     print("Extracting Feature Representation for Query Set and Gallery Set")
+    #     self.set_model_mode("eval")
+    #
+    #     representations = OrderedDict()
+    #     class_names_labels = OrderedDict()
+    #
+    #     with torch.no_grad():
+    #         self.feature_extractor.semantic_projector = None
+    #
+    #         for batch_index, batch_data in enumerate(tqdm(self.test_data_loader)):
+    #             file_names, input_data, class_names = self.parse_batch_test(batch_data)
+    #
+    #             outputs = self.model_inference(input_data)
+    #             outputs = outputs.cpu()
+    #
+    #             for file_name, representation, class_name in zip(file_names, outputs, class_names):
+    #                 representations[file_name] = representation
+    #                 class_names_labels[file_name] = class_name
+    #
+    #         dist_mat = evaluator.compute_dist_mat(representations, self.data_manager.test_dataset)
+    #         evaluator.evaluate(dist_mat, self.data_manager.test_dataset)
+
     def test(self):
-        print("Extracting Feature Representation for Query Set and Gallery Set")
-        self.set_model_mode("eval")
-
-        representations = OrderedDict()
-        class_names_labels = OrderedDict()
-
+        self.feature_extractor.eval()
         with torch.no_grad():
-            self.feature_extractor.semantic_projector = None
-
             for batch_index, batch_data in enumerate(tqdm(self.test_data_loader)):
-                file_names, input_data, class_names = self.parse_batch_test(batch_data)
+                input_data, class_label = self.parse_batch_test(batch_data)
+                semantic_projection = self.feature_extractor(input_data)
+                prediction = self.test_classifier(semantic_projection)
+                self.evaluator.process(prediction, class_label)
+            evaluation_results = self.evaluator.evaluate()
 
-                outputs = self.model_inference(input_data)
-                outputs = outputs.cpu()
+            for k, v in evaluation_results.items():
+                self.write_scalar(f"test/{k}", v, self.current_epoch)
 
-                for file_name, representation, class_name in zip(file_names, outputs, class_names):
-                    representations[file_name] = representation
-                    class_names_labels[file_name] = class_name
-
-            dist_mat = evaluator.compute_dist_mat(representations, self.data_manager.test_dataset)
-            evaluator.evaluate(dist_mat, self.data_manager.test_dataset)
+            return list(evaluation_results.values())[0]

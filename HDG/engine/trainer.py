@@ -147,6 +147,8 @@ class BaseTrainer:
 
     def detect_abnormal_loss(self, loss):
         if not torch.isfinite(loss).all():
+            print()
+            print("Loss: {}".format(loss))
             raise FloatingPointError("Loss is Infinite or NaN.")
 
     def init_writer(self, log_dir):
@@ -285,6 +287,8 @@ class GenericTrainer(BaseTrainer):
         # writer_dir = osp.join(self.output_dir, "tensorboard")
         # mkdir_if_missing(writer_dir)
         # self.init_writer(writer_dir)
+
+        torch.autograd.set_detect_anomaly(True)
 
         self.time_start = time.time()
 
