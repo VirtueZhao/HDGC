@@ -254,6 +254,11 @@ class GenericTrainer(BaseTrainer):
         self.build_model()
         self.evaluator = build_evaluator(self.cfg)
 
+        self.best_epoch = 0
+        self.best_accuracy = 0
+        self.best_error_rate = 0
+        self.best_macro_f1 = 0
+
     def build_model(self):
         """Build and Register Default Model.
 
@@ -292,6 +297,9 @@ class GenericTrainer(BaseTrainer):
 
         self.time_start = time.time()
 
+    def before_epoch(self):
+        self.feature_extractor.train()
+
     def run_epoch(self):
         self.set_model_mode("train")
         losses = MetricMeter()
@@ -328,6 +336,40 @@ class GenericTrainer(BaseTrainer):
             # self.write_scalar("train/lr", self.get_current_lr(), n_iter)
 
             end_time = time.time()
+
+    def after_epoch(self):
+        self.feature_extractor.eval()
+
+        temp_evaluator = build_evaluator(self.cfg)
+        with torch.no_grad():
+            for batch_index, batch_data in enumerate(tqdm(self.test_data_loader)):
+                input_data, class_label = self.parse_batch_test(batch_data)
+                semantic_projection = self.feature_extractor(input_data)
+                prediction = self.test_classifier(semantic_projection)
+                temp_evaluator.process(prediction, class_label)
+            evaluation_results = temp_evaluator.evaluate()
+
+            for k, v in evaluation_results.items():
+                self.write_scalar(f"test/{k}", v, self.current_epoch)
+
+            current_accuracy = evaluation_results["accuracy"]
+            current_error_rate = evaluation_results["error_rate"]
+            current_macro_f1 = evaluation_results["macro_f1"]
+
+            print("Current Accuracy: {}".format(current_accuracy))
+            print("Current Error Rate: {}".format(current_error_rate))
+            print("Current Macro F1: {}".format(current_macro_f1))
+
+            if current_accuracy > self.best_accuracy:
+                self.best_epoch = self.current_epoch
+                self.best_accuracy = current_accuracy
+                self.best_error_rate = current_error_rate
+                self.best_macro_f1 = current_macro_f1
+                print("Best Results Updated")
+                print("Best Epoch: {}".format(self.best_epoch))
+                print("Best Accuracy: {}".format(self.best_accuracy))
+                print("Best Error Rate: {}".format(self.best_error_rate))
+                print("Best Macro F1: {}".format(self.best_macro_f1))
 
     def after_train(self):
         print("Finish Training")

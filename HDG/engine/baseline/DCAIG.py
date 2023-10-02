@@ -82,7 +82,7 @@ class DCAIG(GenericTrainer):
     def forward_backward(self, batch_data):
         input_data, class_label, domain_label = self.parse_batch_train(batch_data)
 
-        if self.current_epoch + 1 <= 0:
+        if self.current_epoch + 1 <= 5:
             # print("Warm-up Epoch")
             output, representations = self.feature_extractor(input_data, return_feature=True)
             c_loss = F.cross_entropy(output, class_label)
